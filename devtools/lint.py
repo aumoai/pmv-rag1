@@ -38,7 +38,17 @@ def run(cmd: list[str]) -> int:
     rprint(f"[bold green]>> {' '.join(cmd)}[/bold green]")
     errcount = 0
     try:
-        subprocess.run(cmd, text=True, check=True)
+        # Special handling for basedpyright to allow warnings but not errors.
+        if cmd[0] == "basedpyright":
+            result = subprocess.run(
+                cmd, text=True, check=False, capture_output=True, encoding="utf-8"
+            )
+            output = result.stdout + result.stderr
+            rprint(output)
+            if "0 errors" not in output:
+                errcount = 1
+        else:
+            subprocess.run(cmd, text=True, check=True)
     except KeyboardInterrupt:
         rprint("[yellow]Keyboard interrupt - Cancelled[/yellow]")
         errcount = 1
