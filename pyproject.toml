@@ -13,7 +13,7 @@ authors = [
 ]
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.13,<4.0"
 dynamic = ["version"]
 
 # https://pypi.org/classifiers/
@@ -38,6 +38,19 @@ classifiers = [
 # ---- Main dependencies ----
 
 dependencies = [
+    "audioop-lts>=0.2.2",
+    "chromadb>=1.1.1",
+    "fastapi>=0.119.0",
+    "google-genai>=1.43.0",
+    "langchain>=0.3.27",
+    "numpy>=2.3.3",
+    "pydantic>=2.12.0",
+    "pydub>=0.25.1",
+    "pypdf2>=3.0.1",
+    "python-docx>=1.2.0",
+    "python-dotenv>=1.1.1",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.37.0",
 ]
 
 
@@ -80,8 +93,10 @@ style = "pep440"
 bump = true
 
 [tool.hatch.build.targets.wheel]
-# The source location for the package.
 packages = ["src/pmv_rag1"]
+
+[tool.hatch.build.sources]
+"src" = "src"
 
 
 # ---- Settings ----
@@ -154,6 +169,7 @@ reportUnreachable = false
 # reportUnnecessaryIsInstance = false
 # reportUnknownVariableType = false
 # reportUnknownArgumentType = false
+pydantic-strict = true
 
 [tool.codespell]
 # Add here as needed:
