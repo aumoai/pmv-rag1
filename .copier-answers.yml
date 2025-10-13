@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier. Do not edit manually.
+_commit: v0.2.18
+_src_path: gh:jlevy/simple-modern-uv
+package_author_email: abner@aumo.ai
+package_author_name: abner G Jacobsen
+package_description: Rag para atendimento do profis
+package_github_org: aumoai
+package_module: pmv_rag1
+package_name: pmv-rag1
