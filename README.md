@@ -18,5 +18,33 @@ For instructions on publishing to PyPI, see [publishing.md](publishing.md).
 
 * * *
 
+## Running the Application
+
+To run the application, follow these steps:
+
+1.  **Configure Environment Variables:**
+
+    Copy the `env.example` file to a new file named `.env` and fill in the required environment variables:
+
+    ```bash
+    cp env.example .env
+    ```
+
+2.  **Install Dependencies:**
+
+    Install the project dependencies using the provided `Makefile` command:
+
+    ```bash
+    make install
+    ```
+
+3.  **Run the Server:**
+
+    Start the FastAPI server using `uvicorn`. The `--reload` flag enables hot-reloading for development:
+
+    ```bash
+    uvicorn src.pmv_rag1.main:app --reload
+    ```
+
 *This project was built from
 [simple-modern-uv](https://github.com/jlevy/simple-modern-uv).*
