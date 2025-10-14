@@ -55,11 +55,12 @@ and file-specific interactions. Prompt localization is currently hard-coded to
 Burmese.
 
 ### Data Access Layer
-- **VectorStore** – Initializes the configured backend (Chroma today, FAISS
-placeholders for future use), manages embeddings via `GeminiClient`, and exposes
-`add_documents`, similarity search (optionally filtered by metadata), deletion
-by metadata, and collection stats. All methods are async to match the service
-layer.
+- **VectorStore** – Initializes the configured backend (Chroma, LanceDB, or the
+FAISS placeholder) according to `Config.VECTOR_STORE_TYPE`. It manages
+embeddings via `GeminiClient`, exposes `add_documents`, similarity search
+(optionally filtered by metadata), deletion by metadata, and collection stats.
+When `VECTOR_STORE_TYPE="lancedb"` it connects through `Config.LANCEDB_URI` and
+stores rows in the table defined by `Config.LANCEDB_TABLE_NAME`.
 
 ## Supporting Components
 
@@ -77,8 +78,14 @@ extension/MIME logic, safe filenames, and supported type registries.
 ## Data & Deployment Considerations
 
 - **Persistence** – The repo expects `./data/uploads` for raw files,
-`./data/chroma_db` for vector persistence, and `./data/temp` for scratch space.
-All directories are auto-created during startup.
+`./data/chroma_db` for Chroma persistence, `./data/lancedb` for LanceDB tables
+when using the default local URI, and `./data/temp` for scratch space. Startup
+creates these directories automatically unless `LANCEDB_URI` points to a remote
+location (URIs containing a scheme are skipped).
+- **Configuration** – Set `VECTOR_STORE_TYPE` to `chroma`, `lancedb`, or `faiss`
+to pick the backend. LanceDB support also reads `LANCEDB_URI` (defaults to the
+local `./data/lancedb` directory) and `LANCEDB_TABLE_NAME` (defaults to
+`rag_documents`).
 - **Asynchronous Safety** – Long CPU/IO calls are dispatched to worker threads;
 when adding heavy logic, follow this pattern or use background tasks to avoid
 blocking the event loop.
