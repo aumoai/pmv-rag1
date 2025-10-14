@@ -20,7 +20,7 @@ class Config:
     GEMINI_EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "models/embedding-001")
 
     # Vector Store Configuration
-    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chroma")  # chroma, lancedb or faiss
+    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chroma")  # Options: "chroma", "lancedb", or "faiss"
     CHROMA_PERSIST_DIRECTORY: str = os.getenv("CHROMA_PERSIST_DIRECTORY", "./data/chroma_db")
     LANCEDB_URI: str = os.getenv("LANCEDB_URI", "./data/lancedb")
     LANCEDB_TABLE_NAME: str = os.getenv("LANCEDB_TABLE_NAME", "rag_documents")
@@ -62,9 +62,11 @@ def create_directories():
         Config.UPLOAD_DIR,
         Config.TEMP_AUDIO_DIR,
         Config.CHROMA_PERSIST_DIRECTORY,
-        Config.LANCEDB_URI,
         os.path.dirname(Config.FAISS_INDEX_PATH),
     ]
+
+    if Config.VECTOR_STORE_TYPE.lower() == "lancedb":
+        directories.append(Config.LANCEDB_URI)
 
     for directory in directories:
         if "://" in directory:
