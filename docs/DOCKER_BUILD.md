@@ -62,19 +62,60 @@ docker run -i --env-file .env snapture-sql-agent-mcp:latest \
 
 ## ⚙️ Configuration
 
+Copy `env.example` to `.env` before building or running the container so the image loads the expected configuration.
+
 ### Required Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | DuckDB database connection URL | `duckdb:///data/mydb.duckdb` |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude models | `sk-ant-...` |
+| Variable | Description |
+|----------|-------------|
+| `GEMINI_API_KEY` | Required Gemini API key used for both chat and embedding requests. |
 
-### Optional Environment Variables
+### Optional API Settings
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MCP_DEBUG` | Enable debug logging | `false` |
-| `LOG_LEVEL` | Logging level | `INFO` |
+| `DEBUG` | Enable debug logging for the API. | `False` |
+| `SECRET_KEY` | Secret used for signing access tokens. | `your-secret-key-change-in-production` |
+
+### Optional Gemini Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GEMINI_MODEL` | Model used for chat completions. | `gemini-2.5-flash` |
+| `GEMINI_EMBEDDING_MODEL` | Model used to generate embeddings. | `models/embedding-001` |
+
+### Optional Vector Store Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VECTOR_STORE_TYPE` | Backend for storing embeddings (`chroma`, `lancedb`, or `faiss`). | `chroma` |
+| `CHROMA_PERSIST_DIRECTORY` | Directory for Chroma collections. | `./data/chroma_db` |
+| `LANCEDB_URI` | Directory or URI for LanceDB storage. | `./data/lancedb` |
+| `LANCEDB_TABLE_NAME` | Table name to use when LanceDB is selected. | `rag_documents` |
+| `FAISS_INDEX_PATH` | Path to the FAISS index directory. | `./data/faiss_index` |
+
+### Optional Upload Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `UPLOAD_DIR` | Directory used to persist uploaded documents. | `./data/uploads` |
+| `MAX_FILE_SIZE` | Maximum upload size in megabytes. | `10` |
+
+### Optional RAG Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CHUNK_SIZE` | Token count per document chunk. | `1000` |
+| `CHUNK_OVERLAP` | Overlap between sequential chunks. | `200` |
+| `MAX_CONTEXT_LENGTH` | Maximum tokens supplied to the model. | `4000` |
+| `TOP_K_RETRIEVAL` | Number of documents retrieved during RAG. | `5` |
+
+### Optional Speech Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `WHISPER_MODEL` | Whisper model variant used for transcription. | `base` |
+| `TEMP_AUDIO_DIR` | Directory for temporary audio processing. | `./data/temp` |
 
 ## 🔧 Advanced Usage
 
