@@ -55,7 +55,7 @@ USER app
 WORKDIR /app
 
 # Expose the MCP server port
-EXPOSE 3000
+EXPOSE 8000
 
 # Default command to run MCP server on HTTP transport
 # CMD ["fastmcp", "run", "mcp_server.py:mcp", "--transport", "http", "--port", "3000", "--host", "0.0.0.0"]
