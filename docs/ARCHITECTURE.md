@@ -52,7 +52,7 @@ new retrieval modes (reranking, hybrid search) should extend here.
 - **GeminiClient** – Wraps the Google Gemini SDK, exposes `generate_response`
 and `get_embeddings`, and centralizes prompt templates for vanilla, document,
 and file-specific interactions. Prompt localization is currently hard-coded to
-Burmese.
+Brazilian Portuguese.
 
 ### Data Access Layer
 - **VectorStore** – Initializes the configured backend (Chroma, LanceDB, or the
