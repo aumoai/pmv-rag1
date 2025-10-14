@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,6 +16,10 @@ try:
 except ValueError as e:
     print(f"Configuration error: {e}")
     exit(1)
+
+# Configure logging before the FastAPI app is created
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.DEBUG if Config.DEBUG else logging.INFO)
 
 # Create FastAPI app
 app = FastAPI(title=Config.API_TITLE, version=Config.API_VERSION, debug=Config.DEBUG)
