@@ -59,4 +59,4 @@ EXPOSE 8000
 
 # Default command to run MCP server on HTTP transport
 # CMD ["fastmcp", "run", "mcp_server.py:mcp", "--transport", "http", "--port", "3000", "--host", "0.0.0.0"]
-CMD ["uv", "run", "uvicorn", "pmv_rag1.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "pmv_rag1.main:app", "--host", "0.0.0.0", "--port", "8000"]
