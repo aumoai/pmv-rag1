@@ -1272,7 +1272,7 @@ requires-dist = [
     { name = "chromadb", specifier = ">=1.1.1" },
     { name = "fastapi", specifier = ">=0.119.0" },
     { name = "google-genai", specifier = ">=1.43.0" },
-    { name = "lancedb", specifier = ">=0.8.9" },
+    { name = "lancedb", specifier = ">=0.25.2" },
     { name = "langchain", specifier = ">=0.3.27" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "pyarrow", specifier = ">=17.0.0" },
