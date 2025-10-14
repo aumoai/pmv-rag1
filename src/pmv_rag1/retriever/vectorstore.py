@@ -308,6 +308,18 @@ class VectorStore:
                         "distance": float(item.get("_distance", 0.0)),
                     }
                 )
+                if Config.DEBUG:
+                    page_content: str = item.get("text", "")
+                    preview = page_content[:120]
+                    if len(page_content) > 120:
+                        preview = f"{preview}..."
+                    logger.debug(
+                        "LanceDB result id=%s distance=%.4f metadata=%s preview=%s",
+                        item.get("id"),
+                        float(item.get("_distance", 0.0)),
+                        metadata,
+                        preview,
+                    )
             return documents
 
         except Exception as e:
@@ -376,6 +388,18 @@ class VectorStore:
                         "distance": float(item.get("_distance", 0.0)),
                     }
                 )
+                if Config.DEBUG:
+                    page_content: str = item.get("text", "")
+                    preview = page_content[:120]
+                    if len(page_content) > 120:
+                        preview = f"{preview}..."
+                    logger.debug(
+                        "LanceDB filtered result id=%s distance=%.4f metadata=%s preview=%s",
+                        item.get("id"),
+                        float(item.get("_distance", 0.0)),
+                        metadata,
+                        preview,
+                    )
                 if len(documents) >= k:
                     break
 
