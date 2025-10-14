@@ -1,17 +1,15 @@
-# 🐳 Docker MCP Server
+# 🐳 Docker FastAPI Service
 
-This document explains how to build and run the Snapture SQL Agent MCP server using Docker.
+This guide explains how to build and run the `pmv-rag1` FastAPI service with Docker.
 
-## 📦 Dockerfile.mcp Overview
+## 📦 Dockerfile Overview
 
-The `Dockerfile` creates a containerized version of the MCP server with the following features:
+The `Dockerfile` packages the FastAPI application with the following features:
 
 - **Multi-stage build** for optimized image size
-- **Python 3.13** runtime with UV package manager
+- **Python 3.13** runtime managed with UV
 - **Non-root user** for enhanced security
-- **Manual monitoring** capabilities
-- **Port 3000** exposed for HTTP transport
-- **FastMCP 2.0** for MCP server functionality
+- **Uvicorn** application server bound to port **8000**
 
 ### Build Architecture
 
@@ -23,9 +21,9 @@ Stage 1 (builder): ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 Stage 2 (runtime): python:3.13-slim-bookworm
 ├── Create non-root user (app:app)
-├── Copy built application from builder
+├── Copy the virtual environment and source code
 ├── Set environment variables
-└── Configure MCP server
+└── Start the FastAPI service with Uvicorn
 ```
 
 ## 🚀 Quick Start
@@ -33,31 +31,20 @@ Stage 2 (runtime): python:3.13-slim-bookworm
 ### 1. Build the Docker Image
 
 ```bash
-# Using the build script (recommended)
-./devtools/build-mcp-docker.sh
-
-# Or manually
-docker build -f Dockerfile -t pmv-rag1:latest .
+docker build -t pmv-rag1:latest .
 ```
 
-### 2. Run the MCP Server
+### 2. Run the FastAPI Service
 
-#### HTTP Mode (Default)
 ```bash
 # With environment file
-docker run -p 3000:3000 --env-file .env pmv-rag1:latest
+docker run -p 8000:8000 --env-file .env pmv-rag1:latest
 
 # With individual environment variables
-docker run -p 3000:3000 \
-  -e GEMINI_API_KEY="your_database_url" \
-  -e ANTHROPIC_API_KEY="your_api_key" \
+docker run -p 8000:8000 \
+  -e GEMINI_API_KEY="your_gemini_api_key" \
+  -e SECRET_KEY="your_secret" \
   pmv-rag1:latest
-```
-
-#### STDIO Mode (for MCP Client Integration)
-```bash
-docker run -i --env-file .env snapture-sql-agent-mcp:latest \
-  fastmcp run mcp_server.py:mcp --transport stdio
 ```
 
 ## ⚙️ Configuration
@@ -66,50 +53,53 @@ docker run -i --env-file .env snapture-sql-agent-mcp:latest \
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | DuckDB database connection URL | `duckdb:///data/mydb.duckdb` |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude models | `sk-ant-...` |
+| `SECRET_KEY` | Secret key used for session security | `change-me-in-prod` |
+| `GEMINI_API_KEY` | Gemini API key for generative AI features | `your-gemini-key` |
 
 ### Optional Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MCP_DEBUG` | Enable debug logging | `false` |
-| `LOG_LEVEL` | Logging level | `INFO` |
+| `DEBUG` | Enable debug logging | `False` |
+| `VECTOR_STORE_TYPE` | Vector database backend (`chroma`, `lancedb`, `faiss`) | `chroma` |
+| `CHROMA_PERSIST_DIRECTORY` | Directory for Chroma persistence | `./data/chroma_db` |
+| `UPLOAD_DIR` | Directory for uploaded files | `./data/uploads` |
+| `MAX_FILE_SIZE` | Maximum upload size in MB | `10` |
+
+Refer to `.env.example` for the full list of configurable options.
 
 ## 🔧 Advanced Usage
 
-### Custom Port
+### Custom Port Mapping
 ```bash
-docker run -p 8080:8080 --env-file .env snapture-sql-agent-mcp:latest \
-  fastmcp run mcp_server.py:mcp --transport http --port 8080 --host 0.0.0.0
+docker run -p 9000:8000 --env-file .env pmv-rag1:latest
 ```
 
-### Volume Mounting for Database
+### Volume Mounting for Persistent Data
 ```bash
-# Mount local database directory
-docker run -p 3000:3000 --env-file .env \
-  -v /path/to/local/db:/app/data \
-  snapture-sql-agent-mcp:latest
+# Mount local data directories for uploads and vector stores
+docker run -p 8000:8000 --env-file .env \
+  -v $(pwd)/data:/app/data \
+  pmv-rag1:latest
 ```
 
 ### Debug Mode
 ```bash
-docker run -p 3000:3000 --env-file .env \
-  -e MCP_DEBUG=true \
-  -e LOG_LEVEL=DEBUG \
-  snapture-sql-agent-mcp:latest
+docker run -p 8000:8000 --env-file .env \
+  -e DEBUG=true \
+  pmv-rag1:latest
 ```
 
 ## 🏥 Monitoring
 
-Monitor the container and MCP server status:
+Monitor the container and FastAPI service status:
 
 ```bash
 # Check container status
 docker ps
 
-# Check if MCP server process is running
-docker exec <container_id> pgrep -f \"fastmcp run\"
+# Check if the Uvicorn process is running
+docker exec <container_id> pgrep -f "uvicorn"
 
 # View container logs
 docker logs <container_id>
@@ -126,23 +116,23 @@ docker logs -f <container_id>
 docker logs <container_id>
 
 # Run interactively for debugging
-docker run -it --env-file .env snapture-sql-agent-mcp:latest bash
+docker run -it --env-file .env pmv-rag1:latest bash
 ```
 
 ### Port Already in Use
 ```bash
-# Use a different port
-docker run -p 3001:3000 --env-file .env snapture-sql-agent-mcp:latest
+# Use a different host port
+docker run -p 9000:8000 --env-file .env pmv-rag1:latest
 ```
 
-### Database Connection Issues
+### API Key Issues
 ```bash
 # Verify environment variables
-docker run --env-file .env snapture-sql-agent-mcp:latest env | grep DATABASE_URL
+docker run --env-file .env pmv-rag1:latest env | grep GEMINI_API_KEY
 
-# Test database connectivity
-docker run -it --env-file .env snapture-sql-agent-mcp:latest \
-  python -c "import duckdb; print('DuckDB OK')"
+# Test Gemini connectivity
+docker run -it --env-file .env pmv-rag1:latest \
+  uv run python -c "print('Environment OK')"
 ```
 
 ## 📝 Development
@@ -150,21 +140,21 @@ docker run -it --env-file .env snapture-sql-agent-mcp:latest \
 ### Building Different Versions
 ```bash
 # Build with specific tag
-./build-mcp-docker.sh v1.0.0
+docker build -t pmv-rag1:v1.0.0 .
 
-# Build development version
-docker build -f Dockerfile.mcp -t snapture-sql-agent-mcp:dev .
+# Build a development version with cache busting
+docker build --no-cache -t pmv-rag1:dev .
 ```
 
 ### Testing the Container
 ```bash
-# Run tests inside container
-docker run --env-file .env snapture-sql-agent-mcp:latest \
+# Run tests inside the container
+docker run --env-file .env pmv-rag1:latest \
   uv run pytest
 
 # Interactive development
 docker run -it -v $(pwd):/app --env-file .env \
-  snapture-sql-agent-mcp:latest bash
+  pmv-rag1:latest bash
 ```
 
 ## 🚢 Deployment
@@ -177,24 +167,24 @@ Create a `docker-compose.yml`:
 version: '3.8'
 
 services:
-  mcp-server:
+  fastapi-server:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "8000:8000"
     env_file:
       - .env
     restart: unless-stopped
+    volumes:
+      - ./data:/app/data  # Optional: for persistent storage
     # Optional: Uncomment for health checks
     # healthcheck:
-    #   test: ["CMD", "pgrep", "-f", "fastmcp run"]
+    #   test: ["CMD", "pgrep", "-f", "uvicorn"]
     #   interval: 30s
     #   timeout: 10s
     #   retries: 3
     #   start_period: 40s
-    volumes:
-      - ./data:/app/data  # Optional: for persistent database storage
 ```
 
 Run with:
@@ -204,11 +194,11 @@ docker-compose -f docker-compose.yml up -d
 
 ### Production Considerations
 
-1. **Security**: Use secrets management for API keys
-2. **Monitoring**: Integrate with your monitoring stack
-3. **Logging**: Configure log aggregation
-4. **Backup**: Ensure database data is backed up
-5. **Updates**: Set up automated image updates
+1. **Security**: Use secrets management for API keys.
+2. **Monitoring**: Integrate container logs with your monitoring stack.
+3. **Logging**: Configure log aggregation (e.g., Fluent Bit, Loki, or CloudWatch).
+4. **Backup**: Persist important data volumes (uploads, vector stores).
+5. **Updates**: Automate image rebuilds and deployments.
 
 ## 📊 Container Specifications
 
@@ -218,9 +208,9 @@ docker-compose -f docker-compose.yml up -d
 | Package Manager | UV (ultra-fast Python package manager) |
 | User | Non-root (`app:app`, UID/GID 1000) |
 | Working Directory | `/app` |
-| Default Port | `3000` |
+| Default Port | `8000` |
 | Health Check | Manual monitoring only |
-| Entry Point | `uv run` |
-| Default Command | FastMCP server on HTTP transport |
+| Entry Point | `uv` |
+| Default Command | `uvicorn pmv_rag1.main:app --host 0.0.0.0 --port 8000` |
 
-This Docker setup provides a robust, secure, and efficient way to deploy the Snapture SQL Agent MCP server in any containerized environment.
+This Docker setup provides a robust, secure, and efficient way to deploy the `pmv-rag1` FastAPI service.
