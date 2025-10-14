@@ -1,9 +1,12 @@
+import json
 import logging
 from typing import Any
 
 import chromadb
 import numpy as np
 from chromadb.api import ClientAPI
+import lancedb
+from lancedb import exceptions as lancedb_exceptions
 
 from pmv_rag1.config import Config
 from pmv_rag1.services.gemini_client import GeminiClient
@@ -12,19 +15,21 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStore:
-    """
-    Vector store for document storage and retrieval using Chroma or FAISS
-    """
+    """Vector store for document storage and retrieval using Chroma, LanceDB, or FAISS."""
 
     def __init__(self):
         self.gemini_client: GeminiClient = GeminiClient()
         self.vector_store_type: str = Config.VECTOR_STORE_TYPE
 
-        self.collection: chromadb.Collection
+        self.collection: chromadb.Collection | None = None
         self.chroma_client: ClientAPI | None = None
+        self.lance_db: Any | None = None
+        self.lance_table: Any | None = None
 
         if self.vector_store_type == "chroma":
             self._init_chroma()
+        elif self.vector_store_type == "lancedb":
+            self._init_lancedb()
         elif self.vector_store_type == "faiss":
             self._init_faiss()
         else:
@@ -62,6 +67,21 @@ class VectorStore:
             logger.error(f"Error initializing FAISS: {str(e)}")
             raise
 
+    def _init_lancedb(self) -> None:
+        """Initialize LanceDB vector store."""
+        try:
+            self.lance_db = lancedb.connect(Config.LANCEDB_URI)
+            try:
+                self.lance_table = self.lance_db.open_table(Config.LANCEDB_TABLE_NAME)
+                logger.info("LanceDB vector store initialized successfully")
+            except (ValueError, lancedb_exceptions.MissingColumnError):
+                self.lance_table = None
+                logger.info("LanceDB table not found; it will be created on first write")
+
+        except Exception as e:
+            logger.error(f"Error initializing LanceDB: {str(e)}")
+            raise
+
     async def add_documents(
         self, documents: list[str], metadata: dict[str, Any] | None = None
     ) -> None:
@@ -81,6 +101,8 @@ class VectorStore:
 
             if self.vector_store_type == "chroma":
                 await self._add_to_chroma(ids, documents, embeddings, metadatas)
+            elif self.vector_store_type == "lancedb":
+                await self._add_to_lancedb(ids, documents, embeddings, metadatas)
             elif self.vector_store_type == "faiss":
                 await self._add_to_faiss(ids, documents, embeddings, metadatas)
 
@@ -89,6 +111,31 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error adding documents to vector store: {str(e)}")
             raise
+
+    @staticmethod
+    def _serialize_metadata(metadata: dict[str, Any]) -> str:
+        try:
+            return json.dumps(metadata or {}, ensure_ascii=False, default=str)
+        except Exception:
+            return json.dumps({}, ensure_ascii=False)
+
+    @staticmethod
+    def _deserialize_metadata(metadata_raw: str | None) -> dict[str, Any]:
+        if not metadata_raw:
+            return {}
+        try:
+            metadata = json.loads(metadata_raw)
+            if isinstance(metadata, dict):
+                return metadata
+        except json.JSONDecodeError:
+            logger.warning("Failed to decode LanceDB metadata, returning empty dict")
+        return {}
+
+    @staticmethod
+    def _metadata_matches(
+        metadata: dict[str, Any], filter_dict: dict[str, Any],
+    ) -> bool:
+        return all(metadata.get(key) == value for key, value in filter_dict.items())
 
     async def _add_to_chroma(
         self,
@@ -117,6 +164,45 @@ class VectorStore:
             logger.error(f"Error adding to Chroma: {str(e)}")
             raise
 
+    async def _add_to_lancedb(
+        self,
+        ids: list[str],
+        documents: list[str],
+        embeddings: list[list[float]],
+        metadatas: list[dict[str, Any]],
+    ) -> None:
+        """Add documents to LanceDB vector store."""
+        try:
+            records: list[dict[str, Any]] = []
+            for doc_id, document, embedding, metadata in zip(
+                ids, documents, embeddings, metadatas
+            ):
+                vector = np.array(embedding, dtype=np.float32).tolist()
+                records.append(
+                    {
+                        "id": doc_id,
+                        "text": document,
+                        "vector": vector,
+                        "metadata": self._serialize_metadata(metadata),
+                    }
+                )
+
+            if records:
+                if self.lance_table is None:
+                    if self.lance_db is None:
+                        raise ValueError("LanceDB connection is not initialized")
+                    self.lance_table = self.lance_db.create_table(
+                        Config.LANCEDB_TABLE_NAME,
+                        data=records,
+                        mode="create",
+                    )
+                else:
+                    self.lance_table.add(records)
+
+        except Exception as e:
+            logger.error(f"Error adding to LanceDB: {str(e)}")
+            raise
+
     async def _add_to_faiss(
         self,
         _ids: list[str],
@@ -141,6 +227,8 @@ class VectorStore:
 
             if self.vector_store_type == "chroma":
                 return await self._search_chroma(query_vector, k)
+            if self.vector_store_type == "lancedb":
+                return await self._search_lancedb(query_vector, k)
             elif self.vector_store_type == "faiss":
                 return await self._search_faiss(query_vector, k)
             return []
@@ -162,6 +250,8 @@ class VectorStore:
 
             if self.vector_store_type == "chroma":
                 return await self._search_chroma_with_filter(query_vector, filter_dict, k)
+            if self.vector_store_type == "lancedb":
+                return await self._search_lancedb_with_filter(query_vector, filter_dict, k)
             elif self.vector_store_type == "faiss":
                 return await self._search_faiss_with_filter(query_vector, filter_dict, k)
             return []
@@ -192,6 +282,36 @@ class VectorStore:
 
         except Exception as e:
             logger.error(f"Error searching Chroma: {str(e)}")
+            raise
+
+    async def _search_lancedb(self, query_vector: list[float], k: int) -> list[dict[str, Any]]:
+        """Search LanceDB vector store."""
+        if self.lance_table is None:
+            return []
+
+        try:
+            results = (
+                self.lance_table.search(
+                    np.array(query_vector, dtype=np.float32).tolist(),
+                    vector_column_name="vector",
+                )
+                .limit(k)
+                .to_list()
+            )
+            documents: list[dict[str, Any]] = []
+            for item in results:
+                metadata = self._deserialize_metadata(item.get("metadata"))
+                documents.append(
+                    {
+                        "page_content": item.get("text", ""),
+                        "metadata": metadata,
+                        "distance": float(item.get("_distance", 0.0)),
+                    }
+                )
+            return documents
+
+        except Exception as e:
+            logger.error(f"Error searching LanceDB: {str(e)}")
             raise
 
     async def _search_chroma_with_filter(
@@ -225,6 +345,44 @@ class VectorStore:
 
         except Exception as e:
             logger.error(f"Error searching Chroma with filter: {str(e)}")
+            raise
+
+    async def _search_lancedb_with_filter(
+        self, query_vector: list[float], filter_dict: dict[str, Any], k: int
+    ) -> list[dict[str, Any]]:
+        """Search LanceDB vector store with metadata filter."""
+        if self.lance_table is None:
+            return []
+
+        try:
+            raw_results = (
+                self.lance_table.search(
+                    np.array(query_vector, dtype=np.float32).tolist(),
+                    vector_column_name="vector",
+                )
+                .limit(max(k * 10, 10))
+                .to_list()
+            )
+
+            documents: list[dict[str, Any]] = []
+            for item in raw_results:
+                metadata = self._deserialize_metadata(item.get("metadata"))
+                if not self._metadata_matches(metadata, filter_dict):
+                    continue
+                documents.append(
+                    {
+                        "page_content": item.get("text", ""),
+                        "metadata": metadata,
+                        "distance": float(item.get("_distance", 0.0)),
+                    }
+                )
+                if len(documents) >= k:
+                    break
+
+            return documents
+
+        except Exception as e:
+            logger.error(f"Error searching LanceDB with filter: {str(e)}")
             raise
 
     async def _search_faiss(self, _query_vector: list[float], _k: int) -> list[dict[str, Any]]:
@@ -272,17 +430,59 @@ class VectorStore:
             logger.error(f"Error deleting documents: {str(e)}")
             raise
 
+        if self.vector_store_type == "lancedb":
+            try:
+                if self.lance_table is None:
+                    logger.info("No LanceDB table initialized; nothing to delete")
+                    return
+
+                rows = self.lance_table.to_arrow().to_pylist()
+                ids_to_delete = []
+                for item in rows:
+                    metadata = self._deserialize_metadata(item.get("metadata"))
+                    if self._metadata_matches(metadata, filter_dict):
+                        ids_to_delete.append(item.get("id"))
+
+                ids_to_delete = [doc_id for doc_id in ids_to_delete if doc_id]
+                if ids_to_delete:
+                    where_clause = ", ".join(f"'{doc_id}'" for doc_id in ids_to_delete)
+                    self.lance_table.delete(where=f"id IN ({where_clause})")
+                    logger.info(
+                        f"Deleted {len(ids_to_delete)} documents from LanceDB vector store"
+                    )
+                else:
+                    logger.info("No LanceDB documents found matching filter criteria")
+
+            except Exception as e:
+                logger.error(f"Error deleting LanceDB documents: {str(e)}")
+                raise
+
     async def get_collection_stats(self) -> dict[str, Any]:
         """
         Get statistics about the vector store
         """
         try:
             if self.vector_store_type == "chroma":
+                if self.collection is None:
+                    raise ValueError("Chroma collection is not initialized")
                 count = self.collection.count()
                 return {
                     "vector_store_type": "chroma",
                     "document_count": count,
                     "collection_name": "rag_documents",
+                }
+            if self.vector_store_type == "lancedb":
+                if self.lance_table is None:
+                    count = 0
+                else:
+                    if hasattr(self.lance_table, "count_rows"):
+                        count = self.lance_table.count_rows()
+                    else:
+                        count = len(self.lance_table.to_arrow().to_pylist())
+                return {
+                    "vector_store_type": "lancedb",
+                    "document_count": int(count),
+                    "collection_name": Config.LANCEDB_TABLE_NAME,
                 }
             elif self.vector_store_type == "faiss":
                 # TODO: Implement FAISS stats
