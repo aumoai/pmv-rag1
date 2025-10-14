@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 import chromadb
@@ -34,6 +35,23 @@ class VectorStore:
             self._init_faiss()
         else:
             raise ValueError(f"Unsupported vector store type: {self.vector_store_type}")
+
+    def _ensure_lance_table(self) -> None:
+        """Open the LanceDB table if it has been created after initialization."""
+        if self.lance_db is None or self.lance_table is not None:
+            return
+
+        db_path = Path(Config.LANCEDB_URI)
+        table_name = Config.LANCEDB_TABLE_NAME
+        possible_locations = [db_path / table_name, db_path / f"{table_name}.lance"]
+
+        if not any(path.exists() for path in possible_locations):
+            return
+
+        try:
+            self.lance_table = self.lance_db.open_table(table_name)
+        except (ValueError, FileNotFoundError, lancedb_exceptions.MissingColumnError):
+            logger.warning("Failed to open LanceDB table despite it existing on disk", exc_info=True)
 
     def _init_chroma(self):
         """
@@ -228,6 +246,7 @@ class VectorStore:
             if self.vector_store_type == "chroma":
                 return await self._search_chroma(query_vector, k)
             if self.vector_store_type == "lancedb":
+                self._ensure_lance_table()
                 return await self._search_lancedb(query_vector, k)
             elif self.vector_store_type == "faiss":
                 return await self._search_faiss(query_vector, k)
@@ -251,6 +270,7 @@ class VectorStore:
             if self.vector_store_type == "chroma":
                 return await self._search_chroma_with_filter(query_vector, filter_dict, k)
             if self.vector_store_type == "lancedb":
+                self._ensure_lance_table()
                 return await self._search_lancedb_with_filter(query_vector, filter_dict, k)
             elif self.vector_store_type == "faiss":
                 return await self._search_faiss_with_filter(query_vector, filter_dict, k)
@@ -286,6 +306,7 @@ class VectorStore:
 
     async def _search_lancedb(self, query_vector: list[float], k: int) -> list[dict[str, Any]]:
         """Search LanceDB vector store."""
+        self._ensure_lance_table()
         if self.lance_table is None:
             return []
 
@@ -363,6 +384,7 @@ class VectorStore:
         self, query_vector: list[float], filter_dict: dict[str, Any], k: int
     ) -> list[dict[str, Any]]:
         """Search LanceDB vector store with metadata filter."""
+        self._ensure_lance_table()
         if self.lance_table is None:
             return []
 
@@ -455,6 +477,7 @@ class VectorStore:
             raise
 
         if self.vector_store_type == "lancedb":
+            self._ensure_lance_table()
             try:
                 if self.lance_table is None:
                     logger.info("No LanceDB table initialized; nothing to delete")
@@ -496,6 +519,7 @@ class VectorStore:
                     "collection_name": "rag_documents",
                 }
             if self.vector_store_type == "lancedb":
+                self._ensure_lance_table()
                 if self.lance_table is None:
                     count = 0
                 else:
