@@ -42,8 +42,10 @@ dependencies = [
     "chromadb>=1.1.1",
     "fastapi>=0.119.0",
     "google-genai>=1.43.0",
+    "lancedb>=0.8.9",
     "langchain>=0.3.27",
     "numpy>=2.3.3",
+    "pyarrow>=17.0.0",
     "pydantic>=2.12.0",
     "pydub>=0.25.1",
     "pypdf2>=3.0.1",
@@ -59,6 +61,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.24.0",
     "pytest-sugar>=1.0.0",
     "ruff>=0.11.9",
     "codespell>=2.4.1",
@@ -186,3 +189,4 @@ testpaths = [
 ]
 norecursedirs = []
 filterwarnings = []
+asyncio_mode = "auto"
