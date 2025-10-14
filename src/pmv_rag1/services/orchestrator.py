@@ -15,9 +15,9 @@ class Orchestrator:
     """
 
     def __init__(self):
-        self.rag_pipeline = RAGPipeline()
-        self.gemini_client = GeminiClient()
         self.vector_store = VectorStore()
+        self.rag_pipeline = RAGPipeline(vector_store=self.vector_store)
+        self.gemini_client = GeminiClient()
 
     async def handle_text(self, query: str) -> str:
         """

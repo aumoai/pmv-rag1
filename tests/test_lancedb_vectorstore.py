@@ -5,6 +5,7 @@ import pytest
 from pmv_rag1.config import Config
 from pmv_rag1.retriever.vectorstore import VectorStore
 from pmv_rag1.services.gemini_client import GeminiClient
+from pmv_rag1.services.rag_pipeline import RAGPipeline
 
 
 def _embedding_for_text(text: str) -> list[float]:
@@ -84,3 +85,16 @@ async def test_lancedb_delete_by_metadata(lance_vector_store: VectorStore) -> No
     results = await vector_store.similarity_search("report", k=2)
     remaining_categories = {result["metadata"].get("category") for result in results}
     assert remaining_categories == {"zeta"}
+
+
+@pytest.mark.asyncio
+async def test_rag_pipeline_reuses_lancedb_instance(
+    lance_vector_store: VectorStore,
+) -> None:
+    rag_pipeline = RAGPipeline(vector_store=lance_vector_store)
+
+    await rag_pipeline.add_documents(["theta guideline chunk"], {"file_id": "file-123"})
+
+    context = await rag_pipeline.retrieve_context("theta guideline")
+
+    assert "theta guideline chunk" in context
