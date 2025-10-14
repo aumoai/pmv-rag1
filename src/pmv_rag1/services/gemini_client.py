@@ -76,7 +76,7 @@ class GeminiClient:
         """
         Build a RAG prompt with context
         """
-        prompt = f"""You are a helpful AI assistant. Use the following context to answer the user's question in Burmese. 
+        prompt = f"""You are a helpful AI assistant. Use the following context to answer the user's question in Brazilian Portuguese. 
         If the context doesn't contain relevant information, you can use your general knowledge, but prioritize the provided context.
 
         Context:
@@ -92,7 +92,7 @@ class GeminiClient:
         """
         Build a RAG prompt with context
         """
-        prompt = f"""You are a helpful AI assistant answer the user's question in Burmese unless user ask for English or other language. 
+        prompt = f"""You are a helpful AI assistant answer the user's question in Brazilian Portuguese unless user ask for English or other language. 
 
         User Question: {query}
 
