@@ -15,8 +15,8 @@ class RAGPipeline:
     RAG pipeline for text processing, embedding, and retrieval
     """
 
-    def __init__(self):
-        self.vector_store = VectorStore()
+    def __init__(self, vector_store: VectorStore | None = None):
+        self.vector_store = vector_store or VectorStore()
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=Config.CHUNK_SIZE,
             chunk_overlap=Config.CHUNK_OVERLAP,
