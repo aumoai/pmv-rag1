@@ -98,3 +98,20 @@ async def test_rag_pipeline_reuses_lancedb_instance(
     context = await rag_pipeline.retrieve_context("theta guideline")
 
     assert "theta guideline chunk" in context
+
+
+@pytest.mark.asyncio
+async def test_existing_instances_detect_new_lancedb_table(
+    lance_vector_store: VectorStore,
+) -> None:
+    writer_store = lance_vector_store
+    reader_store = VectorStore()
+
+    await writer_store.add_documents([
+        "iota knowledge base entry",
+    ], {"category": "iota", "id": "9"})
+
+    results = await reader_store.similarity_search("iota knowledge", k=1)
+
+    assert results
+    assert results[0]["metadata"] == {"category": "iota", "id": "9"}
