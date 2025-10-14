@@ -31,10 +31,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Stage 2: Runtime image
 FROM python:3.13-slim-bookworm AS runtime
 
-# Install utilities for health checks
+# Install utilities for health checks and audio processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     procps \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
